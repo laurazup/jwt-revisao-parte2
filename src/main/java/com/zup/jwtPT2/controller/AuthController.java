@@ -98,4 +98,12 @@ public class AuthController {
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
+
+    // Endpoint para promover um usuário para ADMIN
+    @PutMapping("/promote/{username}")
+    @PreAuthorize("hasRole('ADMIN')") // Apenas ADMIN pode acessar
+    public String promoteToAdmin(@PathVariable String username) {
+        userService.promoteToAdmin(username);
+        return "Usuário " + username + " promovido a ADMIN com sucesso!";
+    }
 }

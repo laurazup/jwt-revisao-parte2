@@ -61,4 +61,17 @@ public class UserService {
     public boolean isUsernameTaken(String username) {
         return userRepository.existsByUsername(username);
     }
+
+    // Método para promover um usuário para ADMIN
+    public void promoteToAdmin(String username) {
+        Optional<User> userOptional = userRepository.findByUsername(username);
+
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            user.getRoles().add("ROLE_ADMIN"); // Adiciona a role ADMIN
+            userRepository.save(user); // Salva as alterações no banco
+        } else {
+            throw new RuntimeException("Usuário não encontrado: " + username);
+        }
+    }
 }
