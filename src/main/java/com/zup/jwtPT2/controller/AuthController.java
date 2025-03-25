@@ -7,10 +7,12 @@ import com.zup.jwtPT2.model.User;
 import com.zup.jwtPT2.service.UserService;
 import com.zup.jwtPT2.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,21 +31,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public TokenResponse login(@RequestBody LoginRequest request) {
-        // Busca o usuário pelo username
+
         User user = userService.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-        // Verifica se a senha está correta
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Credenciais inválidas");
         }
 
-        // Cria claims personalizados
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", user.getRoles());
-        claims.put("username", user.getUsername());
+        claims.put("roles", user.getRoles()); // Adiciona as roles como claim
 
-        // Gera o token JWT
         String token = jwtUtil.generateToken(user.getUsername(), claims);
 
         return new TokenResponse(token, "refreshToken");
@@ -92,5 +90,12 @@ public class AuthController {
         String token = jwtUtil.generateToken(user.getUsername(), claims);
 
         return new TokenResponse(token, "refreshToken");
+    }
+
+    // Endpoint para listar usuários - apenas ADMIN pode acessar
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
     }
 }

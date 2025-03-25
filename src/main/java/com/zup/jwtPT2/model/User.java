@@ -15,6 +15,8 @@ public class User {
     private String username;
     private String password;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER) // Carrega as roles imediatamente
     private Set<String> roles; // Roles do usuário (ex.: ROLE_USER, ROLE_ADMIN)
+
+    public User() { }
 }
