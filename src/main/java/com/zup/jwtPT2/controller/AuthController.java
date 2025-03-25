@@ -1,15 +1,25 @@
 package com.zup.jwtPT2.controller;
 
 import com.zup.jwtPT2.dto.LoginRequest;
+import com.zup.jwtPT2.dto.RegisterRequest;
 import com.zup.jwtPT2.dto.TokenResponse;
+import com.zup.jwtPT2.model.User;
+import com.zup.jwtPT2.service.UserService;
 import com.zup.jwtPT2.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -19,18 +29,68 @@ public class AuthController {
 
     @PostMapping("/login")
     public TokenResponse login(@RequestBody LoginRequest request) {
-        // Simulação de autenticação
-        if ("user".equals(request.getUsername()) && "password".equals(request.getPassword())) {
-            String token = jwtUtil.generateToken(request.getUsername());
-            return new TokenResponse(token, "refreshToken");
+        // Busca o usuário pelo username
+        User user = userService.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        // Verifica se a senha está correta
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Credenciais inválidas");
         }
-        throw new RuntimeException("Credenciais inválidas");
+
+        // Cria claims personalizados
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", user.getRoles());
+        claims.put("username", user.getUsername());
+
+        // Gera o token JWT
+        String token = jwtUtil.generateToken(user.getUsername(), claims);
+
+        return new TokenResponse(token, "refreshToken");
     }
 
     @PostMapping("/refresh")
     public TokenResponse refresh(@RequestHeader("Authorization") String refreshToken) {
-        // Simulação de renovação
-        String newToken = jwtUtil.generateToken("user");
-        return new TokenResponse(newToken, "newRefreshToken");
+        // Remove o prefixo "Bearer " do token, se existir
+        if (refreshToken.startsWith("Bearer ")) {
+            refreshToken = refreshToken.substring(7);
+        }
+
+        // Valida o token de refresh
+        if (!jwtUtil.validateToken(refreshToken)) {
+            throw new RuntimeException("Token de refresh inválido ou expirado");
+        }
+
+        // Extrai o username do token de refresh
+        String username = jwtUtil.getUsernameFromToken(refreshToken);
+
+        // Cria claims personalizados
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", "ROLE_USER"); // Exemplo de claim
+        claims.put("username", username);
+
+        // Gera um novo token de acesso
+        String newAccessToken = jwtUtil.generateToken(username, claims);
+
+        // Retorna o novo token de acesso e mantém o mesmo token de refresh
+        return new TokenResponse(newAccessToken, refreshToken);
+    }
+
+    @PostMapping("/register")
+    public TokenResponse register(@RequestBody RegisterRequest registerRequest) {
+        // Define roles padrão para novos usuários
+        Set<String> roles = Set.of("ROLE_USER");
+
+        // Registra o usuário
+        User user = userService.registerUser(registerRequest.getUsername(), registerRequest.getPassword(), roles);
+
+        // Cria claims personalizados
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", user.getRoles()); // Adiciona roles como claim
+
+        // Gera o token JWT
+        String token = jwtUtil.generateToken(user.getUsername(), claims);
+
+        return new TokenResponse(token, "refreshToken");
     }
 }
